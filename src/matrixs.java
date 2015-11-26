@@ -2,11 +2,12 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
+import java.util.Arrays;
 
 public class matrixs {
 	matrix matrix_gene;
-
 	matrix matrix_mir;
+	
 	public matrixs(String gene, String mri){
 		try{
 			BufferedReader br = new BufferedReader(new FileReader(gene));
@@ -14,36 +15,81 @@ public class matrixs {
 			//System.out.println(matrix_gene);
 			br = new BufferedReader(new FileReader(mri));
 			matrix_mir=makeMatrix(br);
-			System.out.println(matrix_mir);
+			System.out.println(matrix_mir.getCont());
+			//create node tree for miRNA
+			//define bucket size..let's make it 10
+			Map<String, List<Float>> ctt=matrix_mir.getCont();
+			Node root=build_tree(0,ctt);
+
 		}catch(IOException e){
 			e.printStackTrace();
 		}
 	}
+	public Node build_tree(int level, Map<String, List<Float>> ctt){
+		Node rst;
+		if(ctt.keySet().size()<10){
+			float[] tmp=new float[ctt.size()];
+			int key_name=ctt.size()%level;
+			int j=0;
+			for(String x:ctt.keySet()){
+				tmp[j]=ctt.get(x).get(key_name);
+				j++;
+			}
+			Arrays.sort(tmp);
+			float key_value=tmp[ctt.size()/2];
+			Map<String, List<Float>> ct_left=new LinkedHashMap<String, List<Float>> ();
+			Map<String, List<Float>> ct_right=new LinkedHashMap<String, List<Float>> ();
+			for(String x: ctt.keySet()){
+				if(ctt.get(x).get(key_name)<key_value)
+					ct_left.put(x, ctt.get(x));
+				else
+					ct_right.put(x, ctt.get(x));
+			}
+			rst=new Node(key_name,key_value);
+			Node lf=build_tree(level+1,ct_left);
+			lf.setParent(rst);
+			Node rt=build_tree(level+1,ct_left);
+			rt.setParent(rst);
+			rst.setLeft_child(lf);
+			rst.setRight_child(rt);
+		}
+		else{
+			rst=new Node(0,(float)0);
+			rst.setBucket_ct(ctt);
+		}
+		return rst;
+	}
 	public matrix makeMatrix(BufferedReader br) throws IOException{
 		matrix ret=new matrix();
 		Map<String, List<Float>> rst=new LinkedHashMap<String, List<Float>>();
-		LinkedList<String> colum=new LinkedList<String> ();
-		colum.add("patient#");
 		String line;
-		int firstline=0;
+		int firstline=1;
+		int firstcolum=1;
 		while((line=br.readLine())!=null){
 			String[] content=line.split(",");
-			if(content!=null){
-				for(int i=0;i<content.length;i++){
-					if(firstline==0){
-						if(i!=0)
-							colum.add(content[i]);
+			//System.out.println(line);
+			if(content!=null&&firstline==0){
+				String gid="";
+				List<Float> tmpct=new LinkedList<Float>();
+				for(String x:content)
+					{
+						if(firstcolum==1){
+							gid=x;
+							firstcolum=0;
 						}
-					else{
-						List<Float> tmpcolum=rst.get(colum.get(i));
-						if(tmpcolum==null)
-							tmpcolum=new LinkedList<Float> ();
-						tmpcolum.add(Float.parseFloat(content[i]));
-						rst.put(colum.get(i), tmpcolum);
-					}//if firstlilne==0
-				}//for int i=0
+						else {
+							if(x.equals(""))
+								tmpct.add((float) 0.00);
+							else
+								tmpct.add(Float.parseFloat(x));
+							}
+				}
+				rst.put(gid, tmpct);
 			}//if content!=null
-			firstline++;
+			else if(content!=null&&firstline==1){
+				firstline=0;
+			}
+			firstcolum=1;
 		}//while loop
 		ret.setCont(rst);
 		List<Float> mean=new LinkedList<Float> ();
